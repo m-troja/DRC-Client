@@ -74,11 +74,13 @@ function ChatComponent() {
 
             <div className="my-3"></div>
 
-            {isConnected && (
+            {
+                isConnected && (
                 <div className="alert alert-success">
                     You are connected!
                 </div>
-            )}
+            )
+            }
         </div>
     );
 }

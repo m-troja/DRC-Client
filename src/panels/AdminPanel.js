@@ -7,7 +7,6 @@ function AdminPanel() {
     const [isConnected, setIsConnected] = useState(false);
 
     const [stompClient, setStompClient] = useState(null);
-    const [data, setData] = useState('');
 
     const username = `admin`;
     const role = `admin`;
