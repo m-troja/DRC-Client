@@ -6,7 +6,6 @@ import AdminPanel from "./panels/AdminPanel";
 
 function App() {
 
-    // JUST FOR ACHIEVEMENT
     return (
         <div className="app container py-4 bg-body-tertiary rounded-3 my-5">
             <BrowserRouter>
