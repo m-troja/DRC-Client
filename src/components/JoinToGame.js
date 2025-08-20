@@ -15,13 +15,10 @@ function ChatComponent() {
     const role = `user`;
     const url = `http://127.0.0.1:8080/game?username=${encodeURIComponent(username)}&role=${role}`;
 
-
-    const sendMessage = (e) => {
+    const joinToGame = (e) => {
         e.preventDefault();
         if (!isConnected) {
-            const client = new Client({ webSocketFactory: () => new SockJS(url),
-                connectHeaders: { username }
-            });
+            const client = new Client({ webSocketFactory: () => new SockJS(url)});
 
             client.onConnect = () => {
                 setIsConnected(true);
@@ -70,18 +67,20 @@ function ChatComponent() {
 
                 <button type="submit"
                         className="btn btn-primary"
-                        onClick={sendMessage}>
+                        onClick={joinToGame}>
                         Submit
                 </button>
             </form>
 
             <div className="my-3"></div>
 
-            {isConnected && (
+            {
+                isConnected && (
                 <div className="alert alert-success">
                     You are connected!
                 </div>
-            )}
+            )
+            }
         </div>
     );
 }
