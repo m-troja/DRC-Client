@@ -1,22 +1,23 @@
 import React, {useEffect, useState} from "react";
 import { Client } from '@stomp/stompjs';
 import SockJS from "sockjs-client";
+import axios from "axios";
 
 function AdminPanel() {
     const [isConnected, setIsConnected] = useState(false);
 
     const [stompClient, setStompClient] = useState(null);
+    const [data, setData] = useState('');
 
     const username = `admin`;
     const role = `admin`;
     const url = `http://127.0.0.1:8080/game?username=${encodeURIComponent(username)}&role=${role}`;
 
-    const [users, setUsers] = useState([]);
+    const [players, setPlayers] = useState([]);
 
-    const login = (e) => {
-        e.preventDefault();
-        if (!isConnected) {
-            const client = new Client({ webSocketFactory: () => new SockJS(url)});
+    useEffect(() => {
+        if (!isConnected && !stompClient) {
+            const client = new Client({ webSocketFactory: () => new SockJS(url) });
 
             client.onConnect = () => {
                 setIsConnected(true);
@@ -26,15 +27,14 @@ function AdminPanel() {
 
                 client.subscribe('/user/admin/queue/admin-event', (message) => {
                     const eventData = JSON.parse(message.body);
+
+                    // Update players list
                     if (eventData["New user connected"]) {
                         console.log(`New player connected: ${eventData["New user connected"]}`);
-
-                        setUsers((prev) => [...prev, eventData["New user connected"]]);
-                    }
-                    else if (eventData["User disconnected"]) {
+                        setPlayers(prev => [...prev, eventData["New user connected"]]);
+                    } else if (eventData["User disconnected"]) {
                         console.log(`User disconnected: ${eventData["User disconnected"]}`);
-
-                        setUsers(prev => prev.filter(u => u !== eventData["User disconnected"]));
+                        setPlayers(prev => prev.filter(u => u !== eventData["User disconnected"]));
                     }
                 });
             };
@@ -44,24 +44,33 @@ function AdminPanel() {
             client.onStompError = (frame) => console.error('STOMP ERROR:', frame);
 
             client.activate();
+
+            return () => {
+                client.deactivate();
+            };
         }
-    };
+    }, []);
+
+    function startGame(e) {
+        axios.get('http://127.0.0.1:8080/v1/admin/cmd?cmd=START_GAME')
+            .then(response => {
+                console.log(response.data);
+            })
+            .catch(error => {
+                console.error(error);
+            });
+    }
 
     return(
         <div>
-            <h1>Admin Dashboard</h1>
+            <h1 className="display-4">Admin Dashboard</h1>
 
-            <form className="d-flex gap-2 w-100">
-                <button type="submit"
-                        className="btn btn-primary"
-                        onClick={login}>
-                    Connect
-                </button>
-            </form>
+            <button type="button" className="btn btn-primary" onClick={startGame}>Start game</button>
+
 
             <table className="table my-3">
                 <tbody>
-                {users.map(user => (
+                {players.map(user => (
                     <tr key={user}>
                         <td>{user}</td>
                     </tr>

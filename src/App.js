@@ -6,7 +6,7 @@ import AdminPanel from "./panels/AdminPanel";
 
 function App() {
   return (
-      <div className="app container py-4 bg-body-tertiary rounded-3">
+      <div className="app container py-4 bg-body-tertiary rounded-3 my-5">
 
           <BrowserRouter>
               <Routes>
