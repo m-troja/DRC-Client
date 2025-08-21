@@ -2,7 +2,6 @@
   "name": "drc-client",
   "version": "0.1.0",
   "private": true,
-  "proxy": "http://127.0.0.1:8080",
   "dependencies": {
     "@stomp/stompjs": "^7.1.1",
     "@testing-library/dom": "^10.4.1",
