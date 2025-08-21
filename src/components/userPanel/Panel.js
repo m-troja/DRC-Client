@@ -1,14 +1,29 @@
-import React, {useEffect, useRef, useState} from "react";
+import React, {useEffect, useState} from "react";
 import { Client } from '@stomp/stompjs';
 import SockJS from "sockjs-client";
 import axios from "axios";
+import {useParams} from "react-router-dom";
 
-function AdminPanel({username, role}) {
+/**
+ * Component is used as the main panel for users. It changes the content based on the role
+ *
+ * @param username - username that will be used to communicate with the server. We can pass it during the creation of the component or get it from the url
+ * @param role - role of the user. It can be admin or user
+ * @returns {JSX.Element}
+ */
+function Panel({username, role}) {
     const [isConnected, setIsConnected] = useState(false);
     const [stompClient, setStompClient] = useState(null);
 
-    const url = `http://127.0.0.1:8080/game?username=${encodeURIComponent(username)}&role=${role}`;
+    // Getting username from url
+    const params = useParams();
+    if (!username) {
+        username = params.username;
+    }
 
+    const url = `${process.env.REACT_APP_SERVER_ADDRESS}/game?username=${username}&role=${role}`;
+
+    // TODO romove it to separate component
     const [players, setPlayers] = useState([]);
 
     useEffect(() => {
@@ -38,11 +53,17 @@ function AdminPanel({username, role}) {
 
             client.onDisconnect = () => {
                 setIsConnected(false);
-
                 console.log("Disconnected from websocket");
             }
-            client.onWebSocketClose = () => setIsConnected(false);
-            client.onStompError = (frame) => console.error('STOMP ERROR:', frame);
+
+            client.onWebSocketClose = () => {
+                setIsConnected(false);
+            }
+
+            client.onStompError = (frame) => {
+                setIsConnected(false);
+                console.error('STOMP ERROR:', frame);
+            }
 
             client.activate();
 
@@ -67,7 +88,7 @@ function AdminPanel({username, role}) {
     }, []);
 
     function startGame(e) {
-        axios.get('http://127.0.0.1:8080/v1/admin/cmd?cmd=START_GAME')
+        axios.get(`${process.env.REACT_APP_SERVER_ADDRESS}/v1/admin/cmd?cmd=START_GAME`)
             .then(response => {
                 console.log(response.data);
             })
@@ -77,23 +98,36 @@ function AdminPanel({username, role}) {
     }
 
     return(
-        <div>
-            <h1 className="display-4">Admin Dashboard</h1>
+        <div className="container">
+            <h1 className="display-4">Hello {username}</h1>
 
             <button type="button" className="btn btn-primary" onClick={startGame}>Start game</button>
 
+            <div className="my-3"></div>
 
-            <table className="table my-3">
-                <tbody>
-                {players.map(user => (
-                    <tr key={user}>
-                        <td>{user}</td>
-                    </tr>
-                ))}
-                </tbody>
-            </table>
+            {
+                isConnected && (
+                    <div className="alert alert-success">
+                        You are connected!
+                    </div>
+                )
+            }
+
+            <div className="my-3">
+                <h2> Connected users</h2>
+                <table className="table my-3">
+                    <tbody>
+                    {players.map(user => (
+                        <tr key={user}>
+                            <td>{user}</td>
+                        </tr>
+                    ))}
+                    </tbody>
+                </table>
+            </div>
+
         </div>
     );
 }
 
-export default AdminPanel;
+export default Panel;

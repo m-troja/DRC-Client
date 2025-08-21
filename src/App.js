@@ -1,20 +1,18 @@
 import {BrowserRouter, Route, Routes} from 'react-router-dom';
 
-import './App.css';
-import PlayerPanel from "./panels/PlayerPanel";
-import AdminPanel from "./panels/AdminPanel";
+import Panel from "./components/userPanel/Panel";
+import Join from "./components/join/Join";
 
 function App() {
 
     return (
-        <div className="app container py-4 bg-body-tertiary rounded-3 my-5">
-            <BrowserRouter>
-                <Routes>
-                    <Route path="/" element={<PlayerPanel className="px-3"/>} />
-                    <Route path="/admin" element={<AdminPanel />} />
-                </Routes>
-            </BrowserRouter>
-        </div>
+        <BrowserRouter>
+            <Routes>
+                <Route path="/" element={ <Join/> } />
+                <Route path="/user/:username" element={ <Panel role="user"/> } />
+                <Route path="/admin" element={ <Panel username="ADMIN" role="admin"/> } />
+            </Routes>
+        </BrowserRouter>
     );
 }
 
