@@ -3,12 +3,10 @@ import { Client } from '@stomp/stompjs';
 import SockJS from "sockjs-client";
 import axios from "axios";
 
-function AdminPanel() {
+function AdminPanel({username, role}) {
     const [isConnected, setIsConnected] = useState(false);
     const [stompClient, setStompClient] = useState(null);
 
-    const username = `admin`;
-    const role = `admin`;
     const url = `http://127.0.0.1:8080/game?username=${encodeURIComponent(username)}&role=${role}`;
 
     const [players, setPlayers] = useState([]);
@@ -36,16 +34,6 @@ function AdminPanel() {
                         setPlayers(prev => prev.filter(u => u !== eventData["User disconnected"]));
                     }
                 });
-
-                // SENDING PING
-                setInterval(() => {
-                    console.log("Sending ping");
-
-                    client.publish({
-                        destination: '/server/ping',
-                        body: JSON.stringify({ ping: Date.now()}),
-                    });
-                }, 5000);
             };
 
             client.onDisconnect = () => {
@@ -58,7 +46,21 @@ function AdminPanel() {
 
             client.activate();
 
+            // SENDING PING
+            const pingInterval = setInterval(() => {
+                if (client.connected) {
+                    console.log("Sending ping");
+
+                    client.publish({
+                        destination: '/server/ping',
+                        body: JSON.stringify({ ping: Date.now()}),
+                    });
+                }
+            }, 5000);
+
+            // Cleaning up
             return () => {
+                clearInterval(pingInterval);
                 client.deactivate();
             };
         }
