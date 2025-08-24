@@ -3,6 +3,7 @@ import { Client } from '@stomp/stompjs';
 import SockJS from "sockjs-client";
 import axios from "axios";
 import {useParams} from "react-router-dom";
+import Players from "../Players";
 
 /**
  * Component is used as the main panel for users. It changes the content based on the role
@@ -12,8 +13,15 @@ import {useParams} from "react-router-dom";
  * @returns {JSX.Element}
  */
 function Panel({username, role}) {
+
+    // Use states
     const [isConnected, setIsConnected] = useState(false);
     const [stompClient, setStompClient] = useState(null);
+    const [players, setPlayers] = useState([]);
+
+    // CONFIG VARIABLES
+    const serverAddress = process.env.REACT_APP_SERVER_ADDRESS;
+    const pingIntervalMiliseconds = 5;
 
     // Getting username from url
     const params = useParams();
@@ -21,10 +29,7 @@ function Panel({username, role}) {
         username = params.username;
     }
 
-    const url = `${process.env.REACT_APP_SERVER_ADDRESS}/game?username=${username}&role=${role}`;
-
-    // TODO romove it to separate component
-    const [players, setPlayers] = useState([]);
+    const url = `${serverAddress}/game?username=${username}&role=${role}`;
 
     useEffect(() => {
         if (!isConnected && !stompClient) {
@@ -36,19 +41,38 @@ function Panel({username, role}) {
 
                 console.log("Succesfully connected to websocket");
 
-                // SUBSCRIPTIONS
-                client.subscribe('/user/admin/queue/admin-event', (message) => {
-                    const eventData = JSON.parse(message.body);
+                switch (role) {
+                    case "admin":
+                        // Get already connected users
+                        getAndDisplayAlreadyConnectedUsers();
 
-                    // Update players list
-                    if (eventData["New user connected"]) {
-                        console.log(`New player connected: ${eventData["New user connected"]}`);
-                        setPlayers(prev => [...prev, eventData["New user connected"]]);
-                    } else if (eventData["User disconnected"]) {
-                        console.log(`User disconnected: ${eventData["User disconnected"]}`);
-                        setPlayers(prev => prev.filter(u => u !== eventData["User disconnected"]));
-                    }
-                });
+                        // Subscribe admin events
+                        client.subscribe(`/user/${username}/queue/admin-event`, (message) => {
+                            const eventData = JSON.parse(message.body);
+
+                            // Update players list
+                            if (eventData["New user connected"]) {
+                                console.log(`New player connected: ${eventData["New user connected"]}`);
+
+                                // TODO replace this get method when Michał will update response from joining subscription
+
+                                axios.get(`${serverAddress}/v1/user?name=${eventData["New user connected"]}`)
+                                    .then(response => {
+                                        setPlayers(prev => [...prev, response.data]);
+                                    })
+                                    .catch(error => {
+                                        console.error(error);
+                                    });
+                            } else if (eventData["User disconnected"]) {
+                                console.log(`User disconnected: ${eventData["User disconnected"]}`);
+                                setPlayers(prev => prev.filter(u => u.name !== eventData["User disconnected"]));
+                            }
+                        });
+                        break;
+                    case "user":
+                        // PLACEHOLDER
+                        break;
+                }
             };
 
             client.onDisconnect = () => {
@@ -67,7 +91,7 @@ function Panel({username, role}) {
 
             client.activate();
 
-            // SENDING PING
+            // SENDING PING to keep connection alive
             const pingInterval = setInterval(() => {
                 if (client.connected) {
                     console.log("Sending ping");
@@ -77,7 +101,7 @@ function Panel({username, role}) {
                         body: JSON.stringify({ ping: Date.now()}),
                     });
                 }
-            }, 5000);
+            }, pingIntervalMiliseconds);
 
             // Cleaning up
             return () => {
@@ -87,8 +111,9 @@ function Panel({username, role}) {
         }
     }, []);
 
+    // =================== ADMIN FUNCTIONS ===================
     function startGame(e) {
-        axios.get(`${process.env.REACT_APP_SERVER_ADDRESS}/v1/admin/cmd?cmd=START_GAME`)
+        axios.get(`${serverAddress}/v1/admin/cmd?cmd=START_GAME`)
             .then(response => {
                 console.log(response.data);
             })
@@ -97,11 +122,24 @@ function Panel({username, role}) {
             });
     }
 
+    function getAndDisplayAlreadyConnectedUsers() {
+        axios.get(`${serverAddress}/v1/users?gameId=0`)
+            .then(response => {
+                response.data.forEach(user => {
+                    const nonAdminUsers = response.data.filter(user => user.roleName !== "ROLE_ADMIN");
+                    console.log(nonAdminUsers);
+                    setPlayers(nonAdminUsers);
+                })
+            })
+            .catch(error => {
+                console.error(error);
+            });
+    }
+
+    // =================== RENDER ===================
     return(
         <div className="container">
             <h1 className="display-4">Hello {username}</h1>
-
-            <button type="button" className="btn btn-primary" onClick={startGame}>Start game</button>
 
             <div className="my-3"></div>
 
@@ -113,18 +151,13 @@ function Panel({username, role}) {
                 )
             }
 
-            <div className="my-3">
-                <h2> Connected users</h2>
-                <table className="table my-3">
-                    <tbody>
-                    {players.map(user => (
-                        <tr key={user}>
-                            <td>{user}</td>
-                        </tr>
-                    ))}
-                    </tbody>
-                </table>
-            </div>
+            {role === "admin" && (
+                <>
+                    <button type="button" className="btn btn-primary" onClick={startGame}>Start game</button>
+
+                    <Players players={players}/>
+                </>
+            )}
 
         </div>
     );
