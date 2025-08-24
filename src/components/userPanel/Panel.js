@@ -1,4 +1,4 @@
-import React, {useEffect, useState} from "react";
+import React, {useEffect, useRef, useState} from "react";
 import { Client } from '@stomp/stompjs';
 import SockJS from "sockjs-client";
 import axios from "axios";
@@ -16,12 +16,15 @@ function Panel({username, role}) {
 
     // Use states
     const [isConnected, setIsConnected] = useState(false);
-    const [stompClient, setStompClient] = useState(null);
+    const [dangerMessage, setDangerMessage] = useState("");
     const [players, setPlayers] = useState([]);
+
+    const [stompClient, setStompClient] = useState(null);
+    const [pingInterval, setPingInterval] = useState(null);
 
     // CONFIG VARIABLES
     const serverAddress = process.env.REACT_APP_SERVER_ADDRESS;
-    const pingIntervalMiliseconds = 5;
+    const pingIntervalMilliseconds = 5000;
 
     // Getting username from url
     const params = useParams();
@@ -29,7 +32,10 @@ function Panel({username, role}) {
         username = params.username;
     }
 
+    // CONNECTION FUNCTIONS ========================================
     const url = `${serverAddress}/game?username=${username}&role=${role}`;
+
+    console.log(`Connecting to ${url}`);
 
     useEffect(() => {
         if (!isConnected && !stompClient) {
@@ -40,6 +46,14 @@ function Panel({username, role}) {
                 setStompClient(client);
 
                 console.log("Succesfully connected to websocket");
+
+                // Kick from the web socket on request
+                client.subscribe(`/user/${username}/queue/kick`, (message) => {
+                    console.log("Kicked from game");
+                    setDangerMessage("You have been kicked from the game");
+                    disconnectFromWebSocket();
+                    }
+                )
 
                 switch (role) {
                     case "admin":
@@ -55,7 +69,6 @@ function Panel({username, role}) {
                                 console.log(`New player connected: ${eventData["New user connected"]}`);
 
                                 // TODO replace this get method when Michał will update response from joining subscription
-
                                 axios.get(`${serverAddress}/v1/user?name=${eventData["New user connected"]}`)
                                     .then(response => {
                                         setPlayers(prev => [...prev, response.data]);
@@ -65,6 +78,7 @@ function Panel({username, role}) {
                                     });
                             } else if (eventData["User disconnected"]) {
                                 console.log(`User disconnected: ${eventData["User disconnected"]}`);
+
                                 setPlayers(prev => prev.filter(u => u.name !== eventData["User disconnected"]));
                             }
                         });
@@ -76,17 +90,20 @@ function Panel({username, role}) {
             };
 
             client.onDisconnect = () => {
-                setIsConnected(false);
                 console.log("Disconnected from websocket");
+
+                cleanUpConnection();
             }
 
             client.onWebSocketClose = () => {
-                setIsConnected(false);
+                console.log("Disconnected from websocket");
+
+                cleanUpConnection()
             }
 
             client.onStompError = (frame) => {
-                setIsConnected(false);
                 console.error('STOMP ERROR:', frame);
+                cleanUpConnection();
             }
 
             client.activate();
@@ -101,17 +118,38 @@ function Panel({username, role}) {
                         body: JSON.stringify({ ping: Date.now()}),
                     });
                 }
-            }, pingIntervalMiliseconds);
+            }, pingIntervalMilliseconds);
+            setPingInterval(pingInterval);
 
             // Cleaning up
             return () => {
-                clearInterval(pingInterval);
-                client.deactivate();
+                cleanUpConnection();
             };
         }
     }, []);
 
-    // =================== ADMIN FUNCTIONS ===================
+    /**
+     * Use this function to disconnect from the websocket
+     */
+    function disconnectFromWebSocket() {
+        if(stompClient.connected) {
+            console.log("Disconnecting from websocket");
+            stompClient.deactivate();
+
+            cleanUpConnection();
+        }
+    }
+
+    /**
+     * Use this function to clean up the connection
+     */
+    function cleanUpConnection() {
+        setIsConnected(false);
+        setStompClient(null);
+        clearInterval(pingInterval);
+    }
+
+    // ADMIN FUNCTIONS =============================================
     function startGame(e) {
         axios.get(`${serverAddress}/v1/admin/cmd?cmd=START_GAME`)
             .then(response => {
@@ -127,7 +165,6 @@ function Panel({username, role}) {
             .then(response => {
                 response.data.forEach(user => {
                     const nonAdminUsers = response.data.filter(user => user.roleName !== "ROLE_ADMIN");
-                    console.log(nonAdminUsers);
                     setPlayers(nonAdminUsers);
                 })
             })
@@ -136,7 +173,7 @@ function Panel({username, role}) {
             });
     }
 
-    // =================== RENDER ===================
+    // RENDER ======================================================
     return(
         <div className="container">
             <h1 className="display-4">Hello {username}</h1>
@@ -150,12 +187,19 @@ function Panel({username, role}) {
                     </div>
                 )
             }
+            {
+                dangerMessage && (
+                    <div className="alert alert-danger">
+                        {dangerMessage}
+                    </div>
+                )
+            }
 
             {role === "admin" && (
                 <>
                     <button type="button" className="btn btn-primary" onClick={startGame}>Start game</button>
 
-                    <Players players={players}/>
+                    <Players players={players} setPlayers={setPlayers}/>
                 </>
             )}
 
