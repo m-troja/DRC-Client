@@ -18,6 +18,8 @@ function Panel({username, role}) {
     const [isConnected, setIsConnected] = useState(false);
     const [dangerMessage, setDangerMessage] = useState("");
     const [players, setPlayers] = useState([]);
+    const [gameId, setGameId] = useState(0);
+    const [question, setQuestion] = useState("");
 
     const [stompClient, setStompClient] = useState(null);
     const [pingInterval, setPingInterval] = useState(null);
@@ -55,6 +57,14 @@ function Panel({username, role}) {
                     }
                 )
 
+                // Update current question
+                client.subscribe(`/client/question`, (message) => {
+                    console.log("Recieved question: " + message.body);
+                    const eventData = JSON.parse(message.body);
+
+                    setQuestion(eventData.text);
+                })
+
                 switch (role) {
                     case "admin":
                         // Get already connected users
@@ -63,23 +73,17 @@ function Panel({username, role}) {
                         // Subscribe admin events
                         client.subscribe(`/user/${username}/queue/admin-event`, (message) => {
                             const eventData = JSON.parse(message.body);
+                            console.log("Recieved admin event: " + eventData);
 
                             // Update players list
-                            if (eventData["New user connected"]) {
-                                console.log(`New player connected: ${eventData["New user connected"]}`);
+                            if (eventData.messageType === "USER_CONNECTED") {
+                                console.log(`User connected: ${eventData.user.name}`);
 
-                                // TODO replace this get method when Michał will update response from joining subscription
-                                axios.get(`${serverAddress}/v1/user?name=${eventData["New user connected"]}`)
-                                    .then(response => {
-                                        setPlayers(prev => [...prev, response.data]);
-                                    })
-                                    .catch(error => {
-                                        console.error(error);
-                                    });
-                            } else if (eventData["User disconnected"]) {
-                                console.log(`User disconnected: ${eventData["User disconnected"]}`);
+                                setPlayers(prev => [...prev, eventData.user]);
+                            } else if (eventData.messageType === "USER_DISCONNECTED") {
+                                console.log(`User disconnected: ${eventData.user.name}`);
 
-                                setPlayers(prev => prev.filter(u => u.name !== eventData["User disconnected"]));
+                                setPlayers(prev => prev.filter(u => u.name !== eventData.user.name));
                             }
                         });
                         break;
@@ -154,6 +158,8 @@ function Panel({username, role}) {
         axios.get(`${serverAddress}/v1/admin/cmd?cmd=START_GAME`)
             .then(response => {
                 console.log(response.data);
+
+                setGameId(response.data.gameId)
             })
             .catch(error => {
                 console.error(error);
@@ -175,10 +181,20 @@ function Panel({username, role}) {
 
     // RENDER ======================================================
     return(
-        <div className="container">
+        <div className="container my-10 bg-body-tertiary text-light p-5 rounded gap-2 my-auto">
             <h1 className="display-4">Hello {username}</h1>
 
             <div className="my-3"></div>
+
+            {gameId > 0 && (<p> {gameId}</p>)}
+
+            {
+                question && (
+                    <div className="alert alert-primary">
+                        {question}
+                    </div>
+                )
+            }
 
             {
                 isConnected && (
