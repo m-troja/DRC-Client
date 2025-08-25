@@ -18,6 +18,7 @@ function Panel({username, role}) {
     const [isConnected, setIsConnected] = useState(false);
     const [dangerMessage, setDangerMessage] = useState("");
     const [players, setPlayers] = useState([]);
+    const [answers, setAnswers] = useState([]);
     const [gameId, setGameId] = useState(0);
     const [question, setQuestion] = useState("");
 
@@ -47,7 +48,37 @@ function Panel({username, role}) {
                 setIsConnected(true);
                 setStompClient(client);
 
-                console.log("Succesfully connected to websocket");
+                console.log("Successfully connected to websocket");
+
+                if(role === "admin") {
+                    // Get already connected users
+                    getAndDisplayAlreadyConnectedUsers();
+                }
+
+                // Subscribe admin events
+                client.subscribe(`/user/${username}/queue/admin-event`, (message) => {
+                    const eventData = JSON.parse(message.body);
+                    console.log("Recieved admin event: " + eventData);
+
+                    // Update players list
+                    if (role === "admin" && eventData.messageType === "USER_CONNECTED") {
+                        console.log(`User connected: ${eventData.user.name}`);
+
+                        setPlayers(prev => [...prev, eventData.user]);
+                    }
+                    else if (role === "admin" &&  eventData.messageType === "USER_DISCONNECTED") {
+                        console.log(`User disconnected: ${eventData.user.name}`);
+
+                        setPlayers(prev => prev.filter(u => u.name !== eventData.user.name));
+                    }
+                });
+
+                // Subscribe admin events
+                client.subscribe(`/user/${username}/queue/all-answers`, (message) => {
+                    console.log("You received all answers. Good lock you layer!");
+
+                    setAnswers(JSON.parse(message.body));
+                });
 
                 // Kick from the web socket on request
                 client.subscribe(`/user/${username}/queue/kick`, (message) => {
@@ -59,38 +90,11 @@ function Panel({username, role}) {
 
                 // Update current question
                 client.subscribe(`/client/question`, (message) => {
-                    console.log("Recieved question: " + message.body);
+                    console.log("Received question: " + message.body);
                     const eventData = JSON.parse(message.body);
 
                     setQuestion(eventData.text);
                 })
-
-                switch (role) {
-                    case "admin":
-                        // Get already connected users
-                        getAndDisplayAlreadyConnectedUsers();
-
-                        // Subscribe admin events
-                        client.subscribe(`/user/${username}/queue/admin-event`, (message) => {
-                            const eventData = JSON.parse(message.body);
-                            console.log("Recieved admin event: " + eventData);
-
-                            // Update players list
-                            if (eventData.messageType === "USER_CONNECTED") {
-                                console.log(`User connected: ${eventData.user.name}`);
-
-                                setPlayers(prev => [...prev, eventData.user]);
-                            } else if (eventData.messageType === "USER_DISCONNECTED") {
-                                console.log(`User disconnected: ${eventData.user.name}`);
-
-                                setPlayers(prev => prev.filter(u => u.name !== eventData.user.name));
-                            }
-                        });
-                        break;
-                    case "user":
-                        // PLACEHOLDER
-                        break;
-                }
             };
 
             client.onDisconnect = () => {
@@ -218,6 +222,26 @@ function Panel({username, role}) {
                     <Players players={players} setPlayers={setPlayers}/>
                 </>
             )}
+
+            <div className="my-3">
+                <h2> Answers </h2>
+                <table className="table my-3">
+                    <thead>
+                    <tr>
+                        <th>Answer</th>
+                        <th>Value</th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    {answers.map(answer => (
+                        <tr key={answer.text}>
+                            <td>{answer.text}</td>
+                            <td>{answer.value}</td>
+                        </tr>
+                    ))}
+                    </tbody>
+                </table>
+            </div>
 
         </div>
     );
