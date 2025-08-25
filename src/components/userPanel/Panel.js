@@ -22,7 +22,7 @@ function Panel({username, role}) {
     const [dangerMessage, setDangerMessage] = useState("");
     const [players, setPlayers] = useState([]);
     const [answers, setAnswers] = useState([]);
-    const [gameId, setGameId] = useState(0);
+    const [gameId, setGameId] = useState(-1);
     const [question, setQuestion] = useState("");
 
     const [stompClient, setStompClient] = useState(null);
@@ -141,9 +141,6 @@ function Panel({username, role}) {
         }
     }, []);
 
-    useEffect(() => {
-        console.log("isKicked changed:", isKicked);
-    }, [isKicked]);
     /**
      * Use this function to disconnect from the websocket
      */
@@ -178,6 +175,20 @@ function Panel({username, role}) {
             });
     }
 
+    function nextQuestion(e) {
+        const game = gameId.valueOf();
+
+        console.log("Sending next question request");
+
+        axios.get(`${serverAddress}/v1/admin/next-question?gameId=${game}`)
+            .then(response => {
+                console.log(response.data);
+            })
+            .catch(error => {
+                console.error(error);
+            });
+    }
+
     function getAndDisplayAlreadyConnectedUsers() {
         axios.get(`${serverAddress}/v1/users?gameId=0`)
             .then(response => {
@@ -196,33 +207,42 @@ function Panel({username, role}) {
         return <Navigate to={`/kicked/${username}`} replace />
     }
 
-    return(
-        <div className="container my-10 bg-body-tertiary text-light p-5 rounded gap-2 my-auto">
-            <div className="my-3"></div>
+    if (role === "admin") {
+        return (
+            <div className="container">
+                <div className="mx-auto bg-body-tertiary text-light p-5 rounded gap-2">
+                    <div className="d-flex gap-2 py-5">
+                        {gameId === -1 && (
+                            <button type="button" className="btn btn-primary" onClick={startGame}>Start game</button>
+                        )}
 
-            {
-                dangerMessage && (
-                    <div className="alert alert-danger">
-                        {dangerMessage}
+                        {gameId !== -1 && (
+                            <button type="button" className="btn btn-primary" onClick={nextQuestion}>Next question</button>
+                        )}
+
                     </div>
-                )
-            }
-
-            {role === "admin" && (
-                <>
-                    <button type="button" className="btn btn-primary" onClick={startGame}>Start game</button>
 
                     <Players players={players} setPlayers={setPlayers}/>
-                </>
-            )}
 
-            <Question question={question}/>
+                    <Question question={question}/>
 
-            {answers.length > 0 && (
-                <AllAnswers answers={answers}/>
-            )}
+                    {answers.length > 0 && (
+                        <AllAnswers answers={answers}/>
+                    )}
+                </div>
+            </div>)}
 
+    return(
+        <div className="d-flex justify-content-center align-items-center min-vh-100">
+            <div className="mx-auto bg-body-tertiary text-light p-5 rounded gap-2">
 
+                <Question question={question}/>
+
+                {answers.length > 0 && (
+                    <AllAnswers answers={answers}/>
+                )}
+
+            </div>
         </div>
     );
 }
