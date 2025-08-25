@@ -1,9 +1,11 @@
-import React, {useEffect, useRef, useState} from "react";
+import React, {useEffect, useState} from "react";
 import { Client } from '@stomp/stompjs';
 import SockJS from "sockjs-client";
 import axios from "axios";
-import {useParams} from "react-router-dom";
+import {Navigate, useParams} from "react-router-dom";
 import Players from "../Players";
+import AllAnswers from "../AllAnswers";
+import Question from "../Question";
 
 /**
  * Component is used as the main panel for users. It changes the content based on the role
@@ -16,6 +18,7 @@ function Panel({username, role}) {
 
     // Use states
     const [isConnected, setIsConnected] = useState(false);
+    const [isKicked, setIsKicked] = useState(false);
     const [dangerMessage, setDangerMessage] = useState("");
     const [players, setPlayers] = useState([]);
     const [answers, setAnswers] = useState([]);
@@ -83,7 +86,9 @@ function Panel({username, role}) {
                 // Kick from the web socket on request
                 client.subscribe(`/user/${username}/queue/kick`, (message) => {
                     console.log("Kicked from game");
+
                     setDangerMessage("You have been kicked from the game");
+                    setIsKicked(true);
                     disconnectFromWebSocket();
                     }
                 )
@@ -136,6 +141,9 @@ function Panel({username, role}) {
         }
     }, []);
 
+    useEffect(() => {
+        console.log("isKicked changed:", isKicked);
+    }, [isKicked]);
     /**
      * Use this function to disconnect from the websocket
      */
@@ -184,29 +192,14 @@ function Panel({username, role}) {
     }
 
     // RENDER ======================================================
+    if (isKicked) {
+        return <Navigate to={`/kicked/${username}`} replace />
+    }
+
     return(
         <div className="container my-10 bg-body-tertiary text-light p-5 rounded gap-2 my-auto">
-            <h1 className="display-4">Hello {username}</h1>
-
             <div className="my-3"></div>
 
-            {gameId > 0 && (<p> {gameId}</p>)}
-
-            {
-                question && (
-                    <div className="alert alert-primary">
-                        {question}
-                    </div>
-                )
-            }
-
-            {
-                isConnected && (
-                    <div className="alert alert-success">
-                        You are connected!
-                    </div>
-                )
-            }
             {
                 dangerMessage && (
                     <div className="alert alert-danger">
@@ -223,25 +216,12 @@ function Panel({username, role}) {
                 </>
             )}
 
-            <div className="my-3">
-                <h2> Answers </h2>
-                <table className="table my-3">
-                    <thead>
-                    <tr>
-                        <th>Answer</th>
-                        <th>Value</th>
-                    </tr>
-                    </thead>
-                    <tbody>
-                    {answers.map(answer => (
-                        <tr key={answer.text}>
-                            <td>{answer.text}</td>
-                            <td>{answer.value}</td>
-                        </tr>
-                    ))}
-                    </tbody>
-                </table>
-            </div>
+            <Question question={question}/>
+
+            {answers.length > 0 && (
+                <AllAnswers answers={answers}/>
+            )}
+
 
         </div>
     );
