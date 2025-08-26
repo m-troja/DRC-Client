@@ -7,7 +7,7 @@
  */
 import axios from "axios";
 
-function Players({ players, setPlayers}) {
+function Players({ players, setPlayers, selectedUser, setSelectedUser}) {
 
     // CONFIG VARIABLES
     const serverAddress = process.env.REACT_APP_SERVER_ADDRESS;
@@ -23,9 +23,13 @@ function Players({ players, setPlayers}) {
             });
     }
 
+    function selectUser(name) {
+        setSelectedUser(name);
+    }
+
     return (
         <div className="my-3">
-            <h2> Players in lobby </h2>
+            <h2> Players: </h2>
             <table className="table my-3">
                 <thead>
                 <tr>
@@ -39,7 +43,12 @@ function Players({ players, setPlayers}) {
                     <tr key={user.id}>
                         <td>{user.name}</td>
                         <td>{user.money}</td>
-                        <td> <button type="button" className="btn btn-danger" onClick={() => kickUser(user.name)}> Kick </button></td>
+                        <td>
+                            <div className="d-flex gap-2">
+                                <button type="button" className={`btn ${selectedUser === user.name ? "btn-warning" : "btn-secondary"}`} onClick={() => selectUser(user.name)}> {selectedUser === user.name ? "Selected" : "Select"} </button>
+                                <button type="button" className="btn btn-danger" onClick={() => kickUser(user.name)}> Kick </button>
+                            </div>
+                        </td>
                     </tr>
                 ))}
                 </tbody>
