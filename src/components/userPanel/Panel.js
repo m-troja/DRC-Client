@@ -200,6 +200,18 @@ function Panel({username, role}) {
             });
     }
 
+    function findNewCheater() {
+        const game = gameId.valueOf();
+
+        axios.get(`${serverAddress}/v1/admin/draw-cheater?gameId=${game}`)
+            .then(response => {
+                console.log("Requested a new cheater");
+            })
+            .catch(error => {
+                console.error(error);
+            });
+    }
+
     // RENDER ======================================================
     if (isKicked) {
         return <Navigate to={`/kicked/${username}`} replace />
@@ -210,13 +222,16 @@ function Panel({username, role}) {
             <div className="container">
                 <div className="mx-auto bg-body-tertiary text-light p-5 rounded gap-2">
                     <div className="d-flex gap-2 py-3">
+
                         {gameId === -1 && (
                             <button type="button" className="btn btn-primary" onClick={startGame}>Start game</button>
                         )}
 
                         {gameId !== -1 && (
-                            <button type="button" className="btn btn-primary" onClick={nextQuestion}>Next
-                                question</button>
+                            <>
+                                <button type="button" className="btn btn-primary" onClick={nextQuestion}>Next question</button>
+                                <button type="button" className="btn btn-primary" onClick={() => findNewCheater()}>Find a new Cheater</button>
+                            </>
                         )}
 
                     </div>
@@ -229,7 +244,7 @@ function Panel({username, role}) {
                     <Question question={question}/>
 
                     {answers.length > 0 && (
-                        <AllAnswersAdmin answers={answers}/>
+                        <AllAnswersAdmin answers={answers} selectedUser={selectedUser}/>
                     )}
                 </div>
             </div>)
