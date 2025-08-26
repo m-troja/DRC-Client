@@ -1,9 +1,11 @@
-import React, {useEffect, useRef, useState} from "react";
+import React, {useEffect, useState} from "react";
 import { Client } from '@stomp/stompjs';
 import SockJS from "sockjs-client";
 import axios from "axios";
-import {useParams} from "react-router-dom";
+import {Navigate, useParams} from "react-router-dom";
 import Players from "../Players";
+import AllAnswers from "../AllAnswers";
+import Question from "../Question";
 
 /**
  * Component is used as the main panel for users. It changes the content based on the role
@@ -16,8 +18,12 @@ function Panel({username, role}) {
 
     // Use states
     const [isConnected, setIsConnected] = useState(false);
+    const [isKicked, setIsKicked] = useState(false);
     const [dangerMessage, setDangerMessage] = useState("");
     const [players, setPlayers] = useState([]);
+    const [answers, setAnswers] = useState([]);
+    const [gameId, setGameId] = useState(-1);
+    const [question, setQuestion] = useState("");
 
     const [stompClient, setStompClient] = useState(null);
     const [pingInterval, setPingInterval] = useState(null);
@@ -45,48 +51,55 @@ function Panel({username, role}) {
                 setIsConnected(true);
                 setStompClient(client);
 
-                console.log("Succesfully connected to websocket");
+                console.log("Successfully connected to websocket");
+
+                if(role === "admin") {
+                    // Get already connected users
+                    getAndDisplayAlreadyConnectedUsers();
+                }
+
+                // Subscribe admin events
+                client.subscribe(`/user/${username}/queue/admin-event`, (message) => {
+                    const eventData = JSON.parse(message.body);
+                    console.log("Recieved admin event: " + eventData);
+
+                    // Update players list
+                    if (role === "admin" && eventData.messageType === "USER_CONNECTED") {
+                        console.log(`User connected: ${eventData.user.name}`);
+
+                        setPlayers(prev => [...prev, eventData.user]);
+                    }
+                    else if (role === "admin" &&  eventData.messageType === "USER_DISCONNECTED") {
+                        console.log(`User disconnected: ${eventData.user.name}`);
+
+                        setPlayers(prev => prev.filter(u => u.name !== eventData.user.name));
+                    }
+                });
+
+                // Subscribe admin events
+                client.subscribe(`/user/${username}/queue/all-answers`, (message) => {
+                    console.log("You received all answers. Good lock you layer!");
+
+                    setAnswers(JSON.parse(message.body));
+                });
 
                 // Kick from the web socket on request
                 client.subscribe(`/user/${username}/queue/kick`, (message) => {
                     console.log("Kicked from game");
+
                     setDangerMessage("You have been kicked from the game");
+                    setIsKicked(true);
                     disconnectFromWebSocket();
                     }
                 )
 
-                switch (role) {
-                    case "admin":
-                        // Get already connected users
-                        getAndDisplayAlreadyConnectedUsers();
+                // Update current question
+                client.subscribe(`/client/question`, (message) => {
+                    console.log("Received question: " + message.body);
+                    const eventData = JSON.parse(message.body);
 
-                        // Subscribe admin events
-                        client.subscribe(`/user/${username}/queue/admin-event`, (message) => {
-                            const eventData = JSON.parse(message.body);
-
-                            // Update players list
-                            if (eventData["New user connected"]) {
-                                console.log(`New player connected: ${eventData["New user connected"]}`);
-
-                                // TODO replace this get method when Michał will update response from joining subscription
-                                axios.get(`${serverAddress}/v1/user?name=${eventData["New user connected"]}`)
-                                    .then(response => {
-                                        setPlayers(prev => [...prev, response.data]);
-                                    })
-                                    .catch(error => {
-                                        console.error(error);
-                                    });
-                            } else if (eventData["User disconnected"]) {
-                                console.log(`User disconnected: ${eventData["User disconnected"]}`);
-
-                                setPlayers(prev => prev.filter(u => u.name !== eventData["User disconnected"]));
-                            }
-                        });
-                        break;
-                    case "user":
-                        // PLACEHOLDER
-                        break;
-                }
+                    setQuestion(eventData.text);
+                })
             };
 
             client.onDisconnect = () => {
@@ -154,6 +167,22 @@ function Panel({username, role}) {
         axios.get(`${serverAddress}/v1/admin/cmd?cmd=START_GAME`)
             .then(response => {
                 console.log(response.data);
+
+                setGameId(response.data.gameId)
+            })
+            .catch(error => {
+                console.error(error);
+            });
+    }
+
+    function nextQuestion(e) {
+        const game = gameId.valueOf();
+
+        console.log("Sending next question request");
+
+        axios.get(`${serverAddress}/v1/admin/next-question?gameId=${game}`)
+            .then(response => {
+                console.log(response.data);
             })
             .catch(error => {
                 console.error(error);
@@ -174,35 +203,46 @@ function Panel({username, role}) {
     }
 
     // RENDER ======================================================
-    return(
-        <div className="container">
-            <h1 className="display-4">Hello {username}</h1>
+    if (isKicked) {
+        return <Navigate to={`/kicked/${username}`} replace />
+    }
 
-            <div className="my-3"></div>
+    if (role === "admin") {
+        return (
+            <div className="container">
+                <div className="mx-auto bg-body-tertiary text-light p-5 rounded gap-2">
+                    <div className="d-flex gap-2 py-5">
+                        {gameId === -1 && (
+                            <button type="button" className="btn btn-primary" onClick={startGame}>Start game</button>
+                        )}
 
-            {
-                isConnected && (
-                    <div className="alert alert-success">
-                        You are connected!
+                        {gameId !== -1 && (
+                            <button type="button" className="btn btn-primary" onClick={nextQuestion}>Next question</button>
+                        )}
+
                     </div>
-                )
-            }
-            {
-                dangerMessage && (
-                    <div className="alert alert-danger">
-                        {dangerMessage}
-                    </div>
-                )
-            }
-
-            {role === "admin" && (
-                <>
-                    <button type="button" className="btn btn-primary" onClick={startGame}>Start game</button>
 
                     <Players players={players} setPlayers={setPlayers}/>
-                </>
-            )}
 
+                    <Question question={question}/>
+
+                    {answers.length > 0 && (
+                        <AllAnswers answers={answers}/>
+                    )}
+                </div>
+            </div>)}
+
+    return(
+        <div className="d-flex justify-content-center align-items-center min-vh-100">
+            <div className="mx-auto bg-body-tertiary text-light p-5 rounded gap-2">
+
+                <Question question={question}/>
+
+                {answers.length > 0 && (
+                    <AllAnswers answers={answers}/>
+                )}
+
+            </div>
         </div>
     );
 }
