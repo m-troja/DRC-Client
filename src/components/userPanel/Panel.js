@@ -82,6 +82,25 @@ function Panel({username, role}) {
                     setAnswers(JSON.parse(message.body));
                 });
 
+                // Subscribe to the correct answer
+                client.subscribe(`/user/${username}/queue/answer`, (message) => {
+                    const eventData = JSON.parse(message.body);
+                    console.log("Received correct answer: " + eventData);
+
+                    console.log("Name: " + eventData.username + " Value: " + eventData.value);
+
+
+                    setPlayers(prevPlayers =>
+                        prevPlayers.map(player =>
+                            player.name === eventData.username
+                                ? { ...player, money:  player.money + eventData.value }
+                                : player
+                        )
+                    );
+
+                    setSelectedUser("");
+                })
+
                 // Kick from the web socket on request
                 client.subscribe(`/user/${username}/queue/kick`, (message) => {
                     console.log("Kicked from game");
@@ -247,6 +266,20 @@ function Panel({username, role}) {
                         <AllAnswersAdmin answers={answers} selectedUser={selectedUser}/>
                     )}
                 </div>
+
+                {players.map((player, idx) => (
+                    <div key={idx} style={{marginBottom: "1em"}}>
+                        <strong>Player {idx + 1}:</strong>
+                        <ul>
+                            {Object.entries(player).map(([key, value]) => (
+                                <li key={key}>
+                                    {key}: <em>{typeof value}</em> = {JSON.stringify(value)}
+                                </li>
+                            ))}
+                        </ul>
+                    </div>
+                ))}
+
             </div>)
     }
 

@@ -1,7 +1,17 @@
+import axios from "axios";
+
 function AllAnswers({answers, selectedUser}) {
 
+    const serverAddress = process.env.REACT_APP_SERVER_ADDRESS;
+
     function userAnswered(answer, value) {
-        alert(`User ${selectedUser} answered ${answer} with value ${value}`)
+        axios.get(`${serverAddress}/v1/admin/correct-answer-response?value=${value}&username=${selectedUser}`)
+            .then(response => {
+                console.log("Sent information that user answered correctly");
+            })
+            .catch(error => {
+                console.error(error);
+            });
     }
 
     return (
