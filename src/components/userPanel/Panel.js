@@ -21,7 +21,9 @@ function Panel({username, role}) {
     const [isConnected, setIsConnected] = useState(false);
     const [isKicked, setIsKicked] = useState(false);
     const [players, setPlayers] = useState([]);
+    const [answeredPlayers, setAnsweredPlayers] = useState([]);
     const [answers, setAnswers] = useState([]);
+    const [submittedAnswers, setSubmittedAnswers] = useState([]);
     const [gameId, setGameId] = useState(-1);
     const [question, setQuestion] = useState("");
     const [selectedUser, setSelectedUser] = useState("");
@@ -81,6 +83,26 @@ function Panel({username, role}) {
                 client.subscribe(`/user/${username}/queue/all-answers`, (message) => {
                     setAnswers(JSON.parse(message.body));
                 });
+
+                // Subscribe to the correct answer
+                client.subscribe(`/user/${username}/queue/answer`, (message) => {
+                    const eventData = JSON.parse(message.body);
+                    console.log("Received correct answer: " + eventData);
+
+                    console.log("Name: " + eventData.username + " Value: " + eventData.value);
+
+                    setPlayers(prevPlayers =>
+                        prevPlayers.map(player =>
+                            player.name === eventData.username
+                                ? { ...player, money:  player.money + eventData.value }
+                                : player
+                        )
+                    );
+
+                    setSelectedUser("");
+                    setSubmittedAnswers(prev => [...prev, eventData.text]);
+                    setAnsweredPlayers(prev => [...prev, eventData.username]);
+                })
 
                 // Kick from the web socket on request
                 client.subscribe(`/user/${username}/queue/kick`, (message) => {
@@ -181,6 +203,9 @@ function Panel({username, role}) {
         axios.get(`${serverAddress}/v1/admin/next-question?gameId=${game}`)
             .then(response => {
                 console.log(response.data);
+
+                setSubmittedAnswers([]);
+                setAnsweredPlayers([]);
             })
             .catch(error => {
                 console.error(error);
@@ -237,14 +262,14 @@ function Panel({username, role}) {
                     </div>
 
                     <Players players={players} setPlayers={setPlayers} selectedUser={selectedUser}
-                             setSelectedUser={setSelectedUser}/>
+                             setSelectedUser={setSelectedUser} answeredPlayers={answeredPlayers}/>
 
                     <hr/>
 
                     <Question question={question}/>
 
                     {answers.length > 0 && (
-                        <AllAnswersAdmin answers={answers} selectedUser={selectedUser}/>
+                        <AllAnswersAdmin answers={answers} selectedUser={selectedUser} answeredQuestions={submittedAnswers} setAnsweredPlayers={setAnsweredPlayers} setSelectedUser={setSelectedUser}/>
                     )}
                 </div>
             </div>)
