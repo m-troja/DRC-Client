@@ -2,7 +2,7 @@ function Question({question}) {
 
     return (
         <div>
-            <h1 className="display-4"> {question}</h1>
+            <h2> {question}</h2>
         </div>
     )
 }

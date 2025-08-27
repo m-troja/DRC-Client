@@ -6,6 +6,7 @@ import {Navigate, useParams} from "react-router-dom";
 import Players from "../Players";
 import AllAnswers from "../AllAnswers";
 import Question from "../Question";
+import AllAnswersAdmin from "../AllAnswersAdmin";
 
 /**
  * Component is used as the main panel for users. It changes the content based on the role
@@ -19,11 +20,11 @@ function Panel({username, role}) {
     // Use states
     const [isConnected, setIsConnected] = useState(false);
     const [isKicked, setIsKicked] = useState(false);
-    const [dangerMessage, setDangerMessage] = useState("");
     const [players, setPlayers] = useState([]);
     const [answers, setAnswers] = useState([]);
     const [gameId, setGameId] = useState(-1);
     const [question, setQuestion] = useState("");
+    const [selectedUser, setSelectedUser] = useState("");
 
     const [stompClient, setStompClient] = useState(null);
     const [pingInterval, setPingInterval] = useState(null);
@@ -76,10 +77,8 @@ function Panel({username, role}) {
                     }
                 });
 
-                // Subscribe admin events
+                // Subscribe to all answers
                 client.subscribe(`/user/${username}/queue/all-answers`, (message) => {
-                    console.log("You received all answers. Good lock you layer!");
-
                     setAnswers(JSON.parse(message.body));
                 });
 
@@ -87,7 +86,6 @@ function Panel({username, role}) {
                 client.subscribe(`/user/${username}/queue/kick`, (message) => {
                     console.log("Kicked from game");
 
-                    setDangerMessage("You have been kicked from the game");
                     setIsKicked(true);
                     disconnectFromWebSocket();
                     }
@@ -202,6 +200,18 @@ function Panel({username, role}) {
             });
     }
 
+    function findNewCheater() {
+        const game = gameId.valueOf();
+
+        axios.get(`${serverAddress}/v1/admin/draw-cheater?gameId=${game}`)
+            .then(response => {
+                console.log("Requested a new cheater");
+            })
+            .catch(error => {
+                console.error(error);
+            });
+    }
+
     // RENDER ======================================================
     if (isKicked) {
         return <Navigate to={`/kicked/${username}`} replace />
@@ -211,26 +221,34 @@ function Panel({username, role}) {
         return (
             <div className="container">
                 <div className="mx-auto bg-body-tertiary text-light p-5 rounded gap-2">
-                    <div className="d-flex gap-2 py-5">
+                    <div className="d-flex gap-2 py-3">
+
                         {gameId === -1 && (
                             <button type="button" className="btn btn-primary" onClick={startGame}>Start game</button>
                         )}
 
                         {gameId !== -1 && (
-                            <button type="button" className="btn btn-primary" onClick={nextQuestion}>Next question</button>
+                            <>
+                                <button type="button" className="btn btn-primary" onClick={nextQuestion}>Next question</button>
+                                <button type="button" className="btn btn-primary" onClick={() => findNewCheater()}>Find a new Cheater</button>
+                            </>
                         )}
 
                     </div>
 
-                    <Players players={players} setPlayers={setPlayers}/>
+                    <Players players={players} setPlayers={setPlayers} selectedUser={selectedUser}
+                             setSelectedUser={setSelectedUser}/>
+
+                    <hr/>
 
                     <Question question={question}/>
 
                     {answers.length > 0 && (
-                        <AllAnswers answers={answers}/>
+                        <AllAnswersAdmin answers={answers} selectedUser={selectedUser}/>
                     )}
                 </div>
-            </div>)}
+            </div>)
+    }
 
     return(
         <div className="d-flex justify-content-center align-items-center min-vh-100">
