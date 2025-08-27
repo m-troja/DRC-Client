@@ -1,6 +1,6 @@
 import axios from "axios";
 
-function AllAnswers({answers, selectedUser}) {
+function AllAnswersAdmin({answers, selectedUser, answeredQuestions}) {
 
     const serverAddress = process.env.REACT_APP_SERVER_ADDRESS;
 
@@ -26,7 +26,7 @@ function AllAnswers({answers, selectedUser}) {
                 </thead>
                 <tbody>
                 {answers.map(answer => (
-                    <tr key={answer.text}>
+                    <tr key={answer.text} className={answeredQuestions.includes(answer.text) ? "table-success" : ""}>
                         <td>{answer.text}</td>
                         <td>{answer.value}</td>
                         <td>
@@ -40,4 +40,4 @@ function AllAnswers({answers, selectedUser}) {
     )
 }
 
-export default AllAnswers;
+export default AllAnswersAdmin;

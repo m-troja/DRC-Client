@@ -22,6 +22,7 @@ function Panel({username, role}) {
     const [isKicked, setIsKicked] = useState(false);
     const [players, setPlayers] = useState([]);
     const [answers, setAnswers] = useState([]);
+    const [submittedAnswers, setSubmittedAnswers] = useState([]);
     const [gameId, setGameId] = useState(-1);
     const [question, setQuestion] = useState("");
     const [selectedUser, setSelectedUser] = useState("");
@@ -89,7 +90,6 @@ function Panel({username, role}) {
 
                     console.log("Name: " + eventData.username + " Value: " + eventData.value);
 
-
                     setPlayers(prevPlayers =>
                         prevPlayers.map(player =>
                             player.name === eventData.username
@@ -99,6 +99,7 @@ function Panel({username, role}) {
                     );
 
                     setSelectedUser("");
+                    setSubmittedAnswers(prev => [...prev, eventData.text]);
                 })
 
                 // Kick from the web socket on request
@@ -263,23 +264,9 @@ function Panel({username, role}) {
                     <Question question={question}/>
 
                     {answers.length > 0 && (
-                        <AllAnswersAdmin answers={answers} selectedUser={selectedUser}/>
+                        <AllAnswersAdmin answers={answers} selectedUser={selectedUser} answeredQuestions={submittedAnswers}/>
                     )}
                 </div>
-
-                {players.map((player, idx) => (
-                    <div key={idx} style={{marginBottom: "1em"}}>
-                        <strong>Player {idx + 1}:</strong>
-                        <ul>
-                            {Object.entries(player).map(([key, value]) => (
-                                <li key={key}>
-                                    {key}: <em>{typeof value}</em> = {JSON.stringify(value)}
-                                </li>
-                            ))}
-                        </ul>
-                    </div>
-                ))}
-
             </div>)
     }
 
