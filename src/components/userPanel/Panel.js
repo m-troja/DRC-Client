@@ -21,6 +21,7 @@ function Panel({username, role}) {
     const [isConnected, setIsConnected] = useState(false);
     const [isKicked, setIsKicked] = useState(false);
     const [players, setPlayers] = useState([]);
+    const [answeredPlayers, setAnsweredPlayers] = useState([]);
     const [answers, setAnswers] = useState([]);
     const [submittedAnswers, setSubmittedAnswers] = useState([]);
     const [gameId, setGameId] = useState(-1);
@@ -100,6 +101,7 @@ function Panel({username, role}) {
 
                     setSelectedUser("");
                     setSubmittedAnswers(prev => [...prev, eventData.text]);
+                    setAnsweredPlayers(prev => [...prev, eventData.username]);
                 })
 
                 // Kick from the web socket on request
@@ -201,6 +203,9 @@ function Panel({username, role}) {
         axios.get(`${serverAddress}/v1/admin/next-question?gameId=${game}`)
             .then(response => {
                 console.log(response.data);
+
+                setSubmittedAnswers([]);
+                setAnsweredPlayers([]);
             })
             .catch(error => {
                 console.error(error);
@@ -257,14 +262,14 @@ function Panel({username, role}) {
                     </div>
 
                     <Players players={players} setPlayers={setPlayers} selectedUser={selectedUser}
-                             setSelectedUser={setSelectedUser}/>
+                             setSelectedUser={setSelectedUser} answeredPlayers={answeredPlayers}/>
 
                     <hr/>
 
                     <Question question={question}/>
 
                     {answers.length > 0 && (
-                        <AllAnswersAdmin answers={answers} selectedUser={selectedUser} answeredQuestions={submittedAnswers}/>
+                        <AllAnswersAdmin answers={answers} selectedUser={selectedUser} answeredQuestions={submittedAnswers} setAnsweredPlayers={setAnsweredPlayers} setSelectedUser={setSelectedUser}/>
                     )}
                 </div>
             </div>)

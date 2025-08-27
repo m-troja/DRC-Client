@@ -7,7 +7,7 @@
  */
 import axios from "axios";
 
-function Players({ players, setPlayers, selectedUser, setSelectedUser}) {
+function Players({ players, setPlayers, selectedUser, setSelectedUser, answeredPlayers}) {
 
     // CONFIG VARIABLES
     const serverAddress = process.env.REACT_APP_SERVER_ADDRESS;
@@ -35,19 +35,24 @@ function Players({ players, setPlayers, selectedUser, setSelectedUser}) {
                 <tr>
                     <th>Name</th>
                     <th>Money</th>
-                    <th>Action</th>
+                    <td>Select</td>
+                    <th>Kick</th>
                 </tr>
                 </thead>
                 <tbody>
                 {players.map(user => (
-                    <tr key={user.id}>
+                    <tr key={user.id} className={answeredPlayers.includes(user.name) ? "table-success" : ""}>
                         <td>{user.name}</td>
                         <td>{user.money}</td>
                         <td>
-                            <div className="d-flex gap-2">
-                                <button type="button" className={`btn ${selectedUser === user.name ? "btn-warning" : "btn-secondary"}`} onClick={() => selectUser(user.name)}> {selectedUser === user.name ? "Selected" : "Select"} </button>
-                                <button type="button" className="btn btn-danger" onClick={() => kickUser(user.name)}> Kick </button>
-                            </div>
+                            {
+                                !answeredPlayers.includes(user.name) && (
+                                    <button type="button" className="btn btn-warning" onClick={() => selectUser(user.name)}> Select </button>
+                                )
+                            }
+                        </td>
+                        <td>
+                            <button type="button" className="btn btn-danger" onClick={() => kickUser(user.name)}> Kick </button>
                         </td>
                     </tr>
                 ))}

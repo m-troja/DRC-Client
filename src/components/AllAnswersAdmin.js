@@ -1,6 +1,6 @@
 import axios from "axios";
 
-function AllAnswersAdmin({answers, selectedUser, answeredQuestions}) {
+function AllAnswersAdmin({answers, selectedUser, answeredQuestions, setAnsweredPlayers, setSelectedUser}) {
 
     const serverAddress = process.env.REACT_APP_SERVER_ADDRESS;
 
@@ -12,6 +12,11 @@ function AllAnswersAdmin({answers, selectedUser, answeredQuestions}) {
             .catch(error => {
                 console.error(error);
             });
+    }
+
+    function incorrectAnswer() {
+        setAnsweredPlayers(prev => [...prev, selectedUser]);
+        setSelectedUser("");
     }
 
     return (
@@ -30,10 +35,18 @@ function AllAnswersAdmin({answers, selectedUser, answeredQuestions}) {
                         <td>{answer.text}</td>
                         <td>{answer.value}</td>
                         <td>
-                            <button type="button" className="btn btn-primary" disabled={!selectedUser} onClick={() => userAnswered(answer.text, answer.value)}> User Answered </button>
+                            {
+                                (!answeredQuestions.includes(answer.text) && selectedUser) && <button type="button" className="btn btn-primary" disabled={!selectedUser} onClick={() => userAnswered(answer.text, answer.value)}> User Answered </button>
+                            }
+
                         </td>
                     </tr>
                 ))}
+                <tr>
+                    <td colSpan="3">
+                        <button type="button" className="btn btn-danger" disabled={!selectedUser} onClick={() => incorrectAnswer()}> INCORRECT ANSWER </button>
+                    </td>
+                </tr>
                 </tbody>
             </table>
         </div>
