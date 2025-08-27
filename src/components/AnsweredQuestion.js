@@ -1,5 +1,4 @@
-function AllAnswers({answers, submittedAnswers}) {
-
+function AnsweredQuestion({answersForPlayers}) {
     return (
         <div className="my-3">
             <table className="table my-3">
@@ -10,8 +9,8 @@ function AllAnswers({answers, submittedAnswers}) {
                 </tr>
                 </thead>
                 <tbody>
-                {answers.map(answer => (
-                    <tr key={answer.text} className={submittedAnswers.includes(answer.text) ? "table-success" : ""}>
+                {answersForPlayers.map(answer => (
+                    <tr key={answer.text}>
                         <td>{answer.text}</td>
                         <td>{answer.value}</td>
                     </tr>
@@ -22,4 +21,4 @@ function AllAnswers({answers, submittedAnswers}) {
     )
 }
 
-export default AllAnswers;
+export default AnsweredQuestion;

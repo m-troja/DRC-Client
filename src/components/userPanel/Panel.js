@@ -7,6 +7,8 @@ import Players from "../Players";
 import AllAnswers from "../AllAnswers";
 import Question from "../Question";
 import AllAnswersAdmin from "../AllAnswersAdmin";
+import AnsweredQuestion from "../AnsweredQuestion";
+import Score from "../Score";
 
 /**
  * Component is used as the main panel for users. It changes the content based on the role
@@ -24,6 +26,7 @@ function Panel({username, role}) {
     const [answeredPlayers, setAnsweredPlayers] = useState([]);
     const [answers, setAnswers] = useState([]);
     const [submittedAnswers, setSubmittedAnswers] = useState([]);
+    const [answersForPlayers, setAnswersForPlayers] = useState([]);
     const [gameId, setGameId] = useState(-1);
     const [question, setQuestion] = useState("");
     const [selectedUser, setSelectedUser] = useState("");
@@ -81,7 +84,10 @@ function Panel({username, role}) {
 
                 // Subscribe to all answers
                 client.subscribe(`/user/${username}/queue/all-answers`, (message) => {
-                    setAnswers(JSON.parse(message.body));
+                    const data = JSON.parse(message.body);
+                    const sortedData = data.sort((a, b) => b.value - a.value);
+
+                    setAnswers(sortedData);
                 });
 
                 // Subscribe to the correct answer
@@ -98,6 +104,12 @@ function Panel({username, role}) {
                                 : player
                         )
                     );
+
+                    setAnswersForPlayers(prev =>
+                        prev.map(answer =>
+                            answer.value === eventData.value ? {...answer, text: eventData.text} : answer
+                        )
+                    )
 
                     setSelectedUser("");
                     setSubmittedAnswers(prev => [...prev, eventData.text]);
@@ -119,6 +131,8 @@ function Panel({username, role}) {
                     const eventData = JSON.parse(message.body);
 
                     setQuestion(eventData.text);
+                    getAndDisplayAlreadyConnectedUsers();
+                    prepareAnsweredQuestions();
                 })
             };
 
@@ -237,6 +251,19 @@ function Panel({username, role}) {
             });
     }
 
+    function prepareAnsweredQuestions() {
+        setAnswersForPlayers([
+            {value: 2500},
+            {value: 2000},
+            {value: 1500},
+            {value: 1250},
+            {value: 1000},
+            {value: 750},
+            {value: 500},
+            {value:2500},
+        ]);
+    }
+
     // RENDER ======================================================
     if (isKicked) {
         return <Navigate to={`/kicked/${username}`} replace />
@@ -279,12 +306,25 @@ function Panel({username, role}) {
         <div className="d-flex justify-content-center align-items-center min-vh-100">
             <div className="mx-auto bg-body-tertiary text-light p-5 rounded gap-2">
 
+                {
+                    question === "" && (
+                        <h2> Czekamy na rozpoczęcie</h2>
+                    )
+                }
+
                 <Question question={question}/>
 
-                {answers.length > 0 && (
-                    <AllAnswers answers={answers}/>
-                )}
+                <div className="d-flex gap-2 py-3">
+                    {answers.length > 0 && (
+                        <AllAnswers answers={answers} submittedAnswers={submittedAnswers}/>
+                    )}
 
+                    {(question !== "" && answers.length === 0 ) && (
+                        <AnsweredQuestion answersForPlayers={answersForPlayers}/>
+                    )}
+
+                    <Score players={players}/>
+                </div>
             </div>
         </div>
     );
