@@ -9,6 +9,9 @@ import Question from "../Question";
 import AllAnswersAdmin from "../AllAnswersAdmin";
 import AnsweredQuestion from "../AnsweredQuestion";
 import Score from "../Score";
+import ModifayMoney from "../ModifyMoney";
+import ModifyMoney from "../ModifyMoney";
+import ControlView from "../ControlView";
 
 /**
  * Component is used as the main panel for users. It changes the content based on the role
@@ -31,6 +34,9 @@ function Panel({username, role}) {
     const [question, setQuestion] = useState("");
     const [selectedUser, setSelectedUser] = useState("");
     const [cheaterFlag, setCheaterFlag] = useState(false);
+    const [whoIsCheater, setWhoIsCheater] = useState("");
+
+    const [currentView, setCurrentView] = useState("waiting");
 
     const [stompClient, setStompClient] = useState(null);
     const [pingInterval, setPingInterval] = useState(null);
@@ -91,7 +97,6 @@ function Panel({username, role}) {
                 client.subscribe(`/user/${username}/queue/all-answers`, (message) => {
                     const data = JSON.parse(message.body);
                     const sortedData = data.sort((a, b) => b.value - a.value);
-
                     setAnswers(sortedData);
                 });
 
@@ -101,14 +106,6 @@ function Panel({username, role}) {
                     console.log("Received correct answer: " + eventData);
 
                     console.log("Name: " + eventData.username + " Value: " + eventData.value);
-
-                    setPlayers(prevPlayers =>
-                        prevPlayers.map(player =>
-                            player.name === eventData.username
-                                ? { ...player, money:  player.money + eventData.value }
-                                : player
-                        )
-                    );
 
                     setAnswersForPlayers(prev =>
                         prev.map(answer =>
@@ -130,14 +127,44 @@ function Panel({username, role}) {
                     }
                 )
 
+                // Subscribe to update players score
+                client.subscribe(`/user/${username}/queue/users`, (message) => {
+                    const eventData = JSON.parse(message.body);
+
+                    console.log("Received users: " + eventData);
+
+                    setPlayers(prev =>
+                        eventData
+                            .filter(player => player.name !== "ADMIN")
+                            .map(player => ({
+                                id: player.id,
+                                name: player.name,
+                                money: player.money,
+                        }))
+                    );
+
+                    // TODO TUTAJ JEST BUG. aktualizujemy chitera tylko przy zmianie hajsu a przy losowaniu nowego nie jest to wywoływane
+                    eventData.filter(player => player.roleName === "ROLE_CHEATER").forEach(player => {
+                        setWhoIsCheater(player.name);
+                        }
+                    )
+                })
+
                 // Update current question
                 client.subscribe(`/client/question`, (message) => {
                     console.log("Received question: " + message.body);
                     const eventData = JSON.parse(message.body);
 
                     setQuestion(eventData.text);
+                    setAnswers([]);
                     getAndDisplayAlreadyConnectedUsers();
                     prepareAnsweredQuestions();
+                })
+
+                client.subscribe(`/client/command`, (message) => {
+                    const eventData = JSON.parse(message.body);
+                    console.log("Received command: " + eventData.goTo);
+                    setCurrentView(eventData.goTo);
                 })
             };
 
@@ -232,6 +259,18 @@ function Panel({username, role}) {
             });
     }
 
+    function showAnswers(e) {
+        const game = gameId.valueOf();
+
+        axios.get(`${serverAddress}/v1/admin/end-round?gameId=${game}`)
+            .then(response => {
+                console.log(response.data);
+            })
+            .catch(error => {
+                console.error(error);
+            });
+    }
+
     function getAndDisplayAlreadyConnectedUsers() {
         axios.get(`${serverAddress}/v1/users?gameId=0`)
             .then(response => {
@@ -306,6 +345,7 @@ function Panel({username, role}) {
 
                         {gameId !== -1 && (
                             <>
+                                <button type="button" className="btn btn-primary" onClick={showAnswers}>Show answers</button>
                                 <button type="button" className="btn btn-primary" onClick={nextQuestion}>Next question</button>
                                 <button type="button" className="btn btn-primary" onClick={() => findNewCheater()}>Find a new Cheater</button>
                             </>
@@ -313,16 +353,27 @@ function Panel({username, role}) {
 
                     </div>
 
+                    {gameId !== -1 && (
+                        <ControlView gameId={gameId} stompClient={stompClient}/>
+                    )}
+
                     <Players players={players} setPlayers={setPlayers} selectedUser={selectedUser}
                              setSelectedUser={setSelectedUser} answeredPlayers={answeredPlayers}/>
 
-                    <hr/>
-
-                    <Question question={question}/>
-
                     {answers.length > 0 && (
-                        <AllAnswersAdmin answers={answers} selectedUser={selectedUser} answeredQuestions={submittedAnswers} setAnsweredPlayers={setAnsweredPlayers} setSelectedUser={setSelectedUser}/>
+                        <div>
+                            <hr/>
+                            <Question question={question}/>
+                            <AllAnswersAdmin answers={answers} selectedUser={selectedUser} answeredQuestions={submittedAnswers} setAnsweredPlayers={setAnsweredPlayers} setSelectedUser={setSelectedUser}/>
+                        </div>
+
                     )}
+
+                    {
+                        (gameId !== -1 && selectedUser) && (
+                            <ModifyMoney selectedUser={selectedUser} players={players}/>
+                        )
+                    }
                 </div>
             </div>)
     }
@@ -332,29 +383,62 @@ function Panel({username, role}) {
             <div className="mx-auto bg-body-tertiary text-light p-5 rounded gap-2">
 
                 {
-                    question === "" && (
+                    currentView === "waiting" && (
                         <h2> Czekamy na rozpoczęcie</h2>
                     )
                 }
 
-                <Question question={question}/>
+                {
+                    (currentView === "ARE_YOU_CHEATER" && answers.length > 0) && (
+                             <h2> JESTEŚ KŁAMCZUCHEM </h2>
+                    )
+                }
 
-                <div className="d-flex gap-2 py-3">
-                    {answers.length > 0 && (
-                        <>
-                            <button type="button" className="btn btn-danger" onClick={() => cheaterPointedUser()}>Usuń gracza z gry</button>
+                {
+                    (currentView === "ARE_YOU_CHEATER" && answers.length === 0) && (
+                        <h2> To nie Ty </h2>
+                    )
+                }
 
-                            <AllAnswers answers={answers} submittedAnswers={submittedAnswers}/>
-                        </>
+                {
+                    (currentView === "SHOW_QUESTION") && (
+                        <div className="d-flex gap-2 py-3">
+                            {answers.length > 0 && (
+                                <>
+                                    <Question question={question}/>
+                                    <AllAnswers answers={answers} submittedAnswers={submittedAnswers}/>
+                                </>
 
-                    )}
+                            )}
 
-                    {(question !== "" && answers.length === 0 ) && (
-                        <AnsweredQuestion answersForPlayers={answersForPlayers}/>
-                    )}
+                            {(question !== "" && answers.length === 0 ) && (
+                                <AnsweredQuestion answersForPlayers={answersForPlayers}/>
+                            )}
+                        </div>
+                    )
+                }
 
-                    <Score players={players}/>
-                </div>
+                {
+                    (currentView === "SHOW_SCORE") && (
+                        <Score playersScore={players}/>
+                    )
+                }
+
+                {
+                    (currentView === "SHOW_BUTTON" && username === whoIsCheater) && (
+                        <button type="button" className="btn btn-danger" onClick={() => cheaterPointedUser()}>Usuń gracza z gry</button>
+                    )
+                }
+
+                {
+                    (currentView === "SHOW_BUTTON" && username !== whoIsCheater) && (
+                        <h2> Czy to będę ja? </h2>
+                    )
+                }
+
+
+
+
             </div>
         </div>
     );
