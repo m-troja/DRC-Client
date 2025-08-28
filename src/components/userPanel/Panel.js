@@ -30,6 +30,7 @@ function Panel({username, role}) {
     const [gameId, setGameId] = useState(-1);
     const [question, setQuestion] = useState("");
     const [selectedUser, setSelectedUser] = useState("");
+    const [cheaterFlag, setCheaterFlag] = useState(false);
 
     const [stompClient, setStompClient] = useState(null);
     const [pingInterval, setPingInterval] = useState(null);
@@ -79,6 +80,10 @@ function Panel({username, role}) {
                         console.log(`User disconnected: ${eventData.user.name}`);
 
                         setPlayers(prev => prev.filter(u => u.name !== eventData.user.name));
+                    }
+                    else if (role === "admin" &&  eventData.messageType === "CHEATER_POINTED_USER") {
+                        console.log(`User pointed by cheater`);
+                        setCheaterFlag(true);
                     }
                 });
 
@@ -218,6 +223,7 @@ function Panel({username, role}) {
             .then(response => {
                 console.log(response.data);
 
+                setCheaterFlag(false);
                 setSubmittedAnswers([]);
                 setAnsweredPlayers([]);
             })
@@ -260,8 +266,21 @@ function Panel({username, role}) {
             {value: 1000},
             {value: 750},
             {value: 500},
-            {value:2500},
+            {value: 250},
         ]);
+    }
+
+    function cheaterPointedUser() {
+        console.log("Sending cheater pointed user message");
+
+        if (stompClient && stompClient.connected) {
+            stompClient.publish({
+                destination: '/user/ADMIN/queue/admin-event',
+                body: JSON.stringify({ "messageType": "CHEATER_POINTED_USER"}),
+            });
+        } else {
+            console.error("Cannot send message because the client is not connected");
+        }
     }
 
     // RENDER ======================================================
@@ -273,6 +292,12 @@ function Panel({username, role}) {
         return (
             <div className="container">
                 <div className="mx-auto bg-body-tertiary text-light p-5 rounded gap-2">
+                    <h1> Admin panel </h1>
+                    {
+                        cheaterFlag && (
+                            <div className="alert alert-danger"> Cheater pointed user </div>
+                        )
+                    }
                     <div className="d-flex gap-2 py-3">
 
                         {gameId === -1 && (
@@ -316,7 +341,12 @@ function Panel({username, role}) {
 
                 <div className="d-flex gap-2 py-3">
                     {answers.length > 0 && (
-                        <AllAnswers answers={answers} submittedAnswers={submittedAnswers}/>
+                        <>
+                            <button type="button" className="btn btn-danger" onClick={() => cheaterPointedUser()}>Usuń gracza z gry</button>
+
+                            <AllAnswers answers={answers} submittedAnswers={submittedAnswers}/>
+                        </>
+
                     )}
 
                     {(question !== "" && answers.length === 0 ) && (
