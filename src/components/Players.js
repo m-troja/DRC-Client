@@ -17,6 +17,9 @@ function Players({ players, setPlayers, selectedUser, setSelectedUser, answeredP
             .then(response => {
                 console.log("> Sent request to kick user: " + name);
                 setPlayers(prev => prev.filter(u => u.name !== name));
+
+                console.log(response.data);
+
             })
             .catch(error => {
                 console.error(error);
@@ -25,6 +28,10 @@ function Players({ players, setPlayers, selectedUser, setSelectedUser, answeredP
 
     function selectUser(name) {
         setSelectedUser(name);
+    }
+
+    function clearSelectedUser() {
+        setSelectedUser("");
     }
 
     return (
@@ -46,8 +53,14 @@ function Players({ players, setPlayers, selectedUser, setSelectedUser, answeredP
                         <td>{user.money}</td>
                         <td>
                             {
-                                !answeredPlayers.includes(user.name) && (
+                                selectedUser !== user.name && (
                                     <button type="button" className="btn btn-warning" onClick={() => selectUser(user.name)}> Select </button>
+                                )
+                            }
+
+                            {
+                                selectedUser === user.name && (
+                                    <button type="button" className="btn btn-success" onClick={() => clearSelectedUser()}> SELECTED </button>
                                 )
                             }
                         </td>

@@ -1,4 +1,4 @@
-function Score({players}) {
+function Score({playersScore}) {
     return (
         <div className="my-3">
             <table className="table my-3">
@@ -9,7 +9,7 @@ function Score({players}) {
                 </tr>
                 </thead>
                 <tbody>
-                {players.map(user => (
+                {playersScore.map(user => (
                     <tr key={user.id}>
                         <td>{user.name}</td>
                         <td>{user.money}</td>
